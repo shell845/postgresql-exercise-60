@@ -284,3 +284,209 @@ left join (select deptno,
            group by deptno) t
 on dept.deptno = t.deptno
 ;
+
+-- 41.查询各种工作的最低工资
+select job, min(sal) as min_sal
+from emp
+group by job;
+
+-- 42.查询各个部门中不同工种的最高工资
+select dept.deptno, dept.dname, emp.job, coalesce(max(sal),0)
+from dept
+left join emp
+on dept.deptno = emp.deptno
+group by dept.deptno, emp.job
+order by dept.deptno;
+
+-- below is the max sal of each dept regardless of job types
+select deptno, max(sal) as max_sal
+from emp
+group by deptno;
+
+-- 43.查询10号部门员工及其领导的信息
+select emp.deptno, emp.empname, m.empname as manager
+from emp
+left join emp m
+on emp.mgp = m.empno
+where emp.deptno = 10;
+
+-- 44.查询各个部门的人数及平均工资
+select dept.deptno, dept.dname, count(emp.empno) as num_emp, coalesce(avg(sal),0)
+from dept
+left join emp
+on dept.deptno = emp.deptno
+group by dept.deptno;
+-- pay attention that count(*) will return 1 even that dept has no emp
+
+-- 45.查询工资为某个部门平均工资的员工的信息
+select *
+from emp
+where emp.sal in (select avg(sal) from emp group by emp.deptno);
+                      
+-- 46.查询工资为ta自己的部门平均工资的员工的信息
+with avg_sal as (select deptno, coalesce(avg(sal),0) as "avg_sal"
+                 from emp 
+                 group by deptno)
+select emp.*, avg_sal.avg_sal
+from emp
+join avg_sal
+on emp.deptno = avg_sal.deptno
+where emp.sal = avg_sal.avg_sal;
+
+-- 47.查询工资高于本部门平均工资的员工的信息
+with avg_sal as (select deptno, coalesce(avg(sal),0) as "avg_sal"
+                 from emp 
+                 group by deptno)
+select emp.*, avg_sal.avg_sal
+from emp
+join avg_sal
+on emp.deptno = avg_sal.deptno
+where emp.sal > avg_sal.avg_sal;
+
+-- 48.查询工资高于本部门平均工资的员工的信息及其部门的平均工资
+-- same as 47.
+
+-- 49.查询工资高于20号部门某个员工工资的员工的信息
+select *
+from emp
+where emp.sal > (select min(sal) from emp where emp.deptno = 20);
+
+select *
+from emp e1
+where sal > any(select sal from emp e where deptno=20);
+
+-- 50.统计各个工种的员工人数与平均工资
+select job, count(empname) as num, avg(sal)
+from emp
+group by job;
+
+-- 51.统计每个部门中各工种的人数与平均工资
+select dept.deptno, dept.dname, emp.job, count(emp.empname), avg(sal)
+from dept
+left join emp
+on dept.deptno = emp.deptno
+group by dept.deptno, emp.job
+order by dept.deptno;
+
+-- 52.查询其他部门中工资、奖金与30号部门某员工工资、奖金都相同的员工的信息。没有查询结果
+select *
+from emp e
+where e.sal + e.comm in (select e30.sal + e30.comm
+                         from emp e30
+                         where e30.deptno = 30
+                         and e.deptno <> 30
+                         and e30.sal = e.sal
+                         and e30.comm = e.comm);
+
+-- 53.查询部门人数大于5的部门的员工信息
+with count_cmp as (select deptno, count(empno) as c 
+                   from emp  
+                   group by deptno
+                   having count(empno)>5)
+select emp.*, count_cmp.c
+from emp
+inner join count_cmp  -- here use inner join (default join)
+on emp.deptno = count_cmp.deptno;
+
+-- 54.查询所有员工工资都大于1000的部门的信息
+with s as (select deptno, min(sal) as min_sal 
+           from emp 
+           group by deptno 
+           having min(sal) > 1000)
+select dept.* , s.min_sal
+from dept
+inner join s
+on dept.deptno = s.deptno;
+
+-- 55.查询所有员工工资都大于1000的部门的信息及其员工信息
+with s as (select deptno, min(sal) as min_sal 
+           from emp 
+           group by deptno 
+           having min(sal) > 1000)
+select dept.* , emp.*, s.min_sal
+from dept
+inner join s
+on dept.deptno = s.deptno
+inner join emp
+on dept.deptno = emp.deptno;
+
+-- 56.查询所有员工工资都在900～15000之间的部门的信息
+with s as (select deptno, min(sal) as min_sal, max(sal) as max_sal
+           from emp 
+           group by deptno 
+           having min(sal) > 1000 and max(sal) < 15000)
+select dept.* , s.min_sal, s.max_sal
+from dept
+inner join s
+on dept.deptno = s.deptno;
+
+select * from dept
+where deptno in(
+select deptno from emp 
+group by deptno 
+having min(sal)>1000 and max(sal)<15000
+);
+
+-- 57.查询有工资在1000～15000之间的员工所在部门的员工信息
+with s as (select deptno, min(sal) as min_sal, max(sal) as max_sal
+           from emp 
+           group by deptno 
+           having min(sal) > 1000 and max(sal) < 15000)
+select emp.* , s.min_sal, s.max_sal
+from emp
+inner join s
+on emp.deptno = s.deptno;
+
+select * from emp
+where deptno in(
+select deptno from emp 
+group by deptno 
+having min(sal)>1000 and max(sal)<15000
+);
+
+-- 58.查询每个员工的领导所在部门的信息
+with m_dept as (select e.empname as e_name, m.empname as m_name, m.deptno as md
+                from emp e
+                inner join emp m
+                on e.mgp = m.empno)
+select dept.*, m_dept.*
+from dept
+inner join m_dept
+on dept.deptno = m_dept.md;
+
+with m_dept as (select distinct m.deptno as md
+                from emp e
+                inner join emp m
+                on e.mgp = m.empno)
+select dept.*
+from dept
+inner join m_dept
+on dept.deptno = m_dept.md;
+
+-- 59.查询人数最多的部门信息
+select *
+from dept
+where dept.deptno in (select emp.deptno
+                      from emp
+                      group by deptno
+                      order by count(empno) desc
+                      limit 1)
+;
+
+-- 60.查询30号部门中工资排序前3名的员工信息
+select *
+from emp
+where emp.deptno = 30
+order by sal desc
+limit 3;
+
+-- 61.查询所有员工中工资排序在5到10名之间的员工信息
+select *
+from emp
+order by sal desc
+limit 5 offset 4;
+
+-- 62.查询指定年份之间入职的员工信息。(1980-1985)
+select *
+from emp
+where hiredate between to_date('1980','YYYY') and to_date('1985','YYYY');
