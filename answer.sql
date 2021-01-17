@@ -161,4 +161,126 @@ left join dept
 on emp.deptno = dept.deptno
 where emp.job = 'CLERK';
 
+-- 31.查询最低工资大于2500的各种工作
+select distinct job from emp where sal > 2500;
 
+-- 32.查询平均工资低于3000的部门及其员工信息
+select emp.deptno, emp.empno, emp.empname, temp.avg_sal
+from emp
+inner join (select deptno, avg(sal) as avg_sal
+      from emp
+      group by deptno
+      having avg(sal) < 3000) temp
+on emp.deptno = temp.deptno;
+
+select emp.deptno, emp.empno, emp.empname
+from emp
+where emp.deptno in (select deptno
+                     from emp
+                     group by deptno
+                     having avg(sal) < 3000)
+;
+
+-- 33.查询在SALES部门工作的员工的姓名信息
+select emp.empname, dept.dname
+from emp
+left join dept
+on emp.deptno = dept.deptno
+where dept.dname = 'SALES';
+
+-- 34.查询工资高于公司平均工资的所有员工信息
+select emp.empname, emp.sal, temp.avg_sal
+from emp
+left join (select avg(sal) as avg_sal from emp) temp
+on true
+where emp.sal > temp.avg_sal;
+
+select emp.empname, emp.sal, temp.avg_sal
+from emp
+cross join (select avg(sal) as avg_sal from emp) temp
+where emp.sal > temp.avg_sal;
+
+/*
+join on true is an unconditional JOIN
+
+different from CROSS JOIN 
+in that all rows from the left table expression are returned, 
+even if there is no match in the right table expression
+while a CROSS JOIN drops such rows from the result
+*/
+
+select emp.empname, emp.sal
+from emp
+where emp.sal > (select avg(sal) as avg_sal from emp);
+
+-- 35.查询出与SMITH员工从事相同工作的所有员工信息
+select emp.empno, 
+       emp.empname, 
+       emp.job, 
+       emp.mgp, 
+       emp.hiredate, 
+       emp.sal, 
+       emp.comm
+from emp
+left join emp s
+on s.empname = 'SMITH'
+where emp.job = s.job;
+
+-- 36.列出工资等于30部门中某个员工的工资的所有非30部门员工的姓名和工资
+select empname, sal, deptno
+from emp 
+where sal in (select sal from emp where deptno = 30)
+and deptno <> 30;
+
+-- 37.查询工资高于30部门工作的所有员工的工资的员工姓名和工资
+select *
+from emp
+left join (select sal
+           from emp
+           where deptno = 30
+           order by sal desc
+           limit 1) max_sal
+on true
+where emp.sal > max_sal.sal;
+
+select *
+from emp
+where sal > (select sal
+           from emp
+           where deptno = 30
+           order by sal desc
+           limit 1)
+and deptno <> 30
+;
+
+-- 38.查询每个部门中的员工数量、平均工资和平均工作年限
+select deptno, count(*), coalesce(avg(sal), 0), coalesce(avg(age(hiredate)))
+from emp
+group by deptno;
+
+-- 39.查询从事同一种工作但不属于同一部门的员工信息
+select *
+from emp e1
+where e1.job in (select e2.job from emp e2 where e1.deptno <> e2.deptno);
+
+-- 40.查询各个部门的详细信息以及部门人数、部门平均工资
+select dept.deptno, dept.dname, count(emp.empno), coalesce(avg(sal),0), avg(age(hiredate))
+from dept
+left join emp
+on dept.deptno = emp.deptno
+group by dept.deptno, dept.dname;
+
+select dept.deptno, 
+       dept.dname, 
+       t.c as count, 
+       t.s as avg_sal, 
+       t.d as avg_period
+from dept
+left join (select deptno, 
+                  count(*) as c, 
+                  avg(sal) as s, 
+                  avg(age(hiredate)) as d
+           from emp
+           group by deptno) t
+on dept.deptno = t.deptno
+;
